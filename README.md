@@ -9,3 +9,7 @@
 ```sh
 bsor2json.exe filename.bsor > filename.json
 ```
+
+### Dependencies
+
+[go-bsor (BS Open Relay parser)](https://github.com/motzel/go-bsor)
