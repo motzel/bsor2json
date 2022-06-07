@@ -24,16 +24,14 @@ func main() {
 
 	file, err := os.Open(path)
 	if err != nil {
-		log.Fatal("Can not open file: ", err)
+		log.Fatal("Can not open replay: ", err)
 	}
 
 	defer file.Close()
 
-	var replay bsor.Bsor
-
-	err = bsor.Read(*file, &replay)
-	if err != nil {
-		log.Fatal("Read error: ", err)
+	var replay *bsor.Bsor
+	if replay, err = bsor.Read(file); err != nil {
+		log.Fatal("Replay decode: ", err)
 	}
 
 	json, err := json.Marshal(replay)
