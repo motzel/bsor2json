@@ -28,7 +28,7 @@ func (argv *rootT) Validate(ctx *cli.Context) error {
 }
 
 var root = &cli.Command{
-	Name: "bsor2json",
+	Name: "bsor2json v0.3.1",
 	Desc: "Convert bsor file to json",
 	Argv: func() interface{} { return new(rootT) },
 	Fn: func(ctx *cli.Context) error {

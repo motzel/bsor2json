@@ -7,7 +7,7 @@
 ## Usage
 
 ```sh
-bsor2json.exe filename.bsor > filename.json
+bsor2json.exe -f filename.bsor > filename.json
 ```
 
 ### Dependencies
