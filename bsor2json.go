@@ -1,8 +1,9 @@
 package main
 
 import (
-	"encoding/json"
+	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"os"
 
@@ -16,8 +17,9 @@ var help = cli.HelpCommand("display help information")
 type rootT struct {
 	cli.Helper
 	// Dir    string `cli:"d,dir" usage:"directory containing bsor files to convert" dft:".\\BeatLeader\\Replays"`
-	File   string `cli:"f,file" usage:"bsor file to convert"`
-	Pretty bool   `cli:"p,pretty" usage:"whether the output JSON should be pretty formatted; conversion time will be much longer and the file will be larger" dft:"false"`
+	File     string `cli:"f,file" usage:"bsor file to convert"`
+	Pretty   bool   `cli:"p,pretty" usage:"whether the output JSON should be pretty formatted; conversion time will be much longer and the file will be larger" dft:"false"`
+	Buffered bool   `cli:"b,buffered" usage:"whether file read should be buffered; it's faster but increases memory usage" dft:"true"`
 }
 
 func (argv *rootT) Validate(ctx *cli.Context) error {
@@ -28,7 +30,7 @@ func (argv *rootT) Validate(ctx *cli.Context) error {
 }
 
 var root = &cli.Command{
-	Name: "bsor2json v0.3.1",
+	Name: "bsor2json v0.4.0",
 	Desc: "Convert bsor file to json",
 	Argv: func() interface{} { return new(rootT) },
 	Fn: func(ctx *cli.Context) error {
@@ -41,8 +43,25 @@ var root = &cli.Command{
 
 		defer file.Close()
 
+		var reader io.Reader
+		if argv.Buffered {
+			fi, err := file.Stat()
+			if err != nil {
+				log.Fatal("Can not get replay size: ", err)
+			}
+
+			buf := bytes.NewBuffer(make([]byte, 0, fi.Size()))
+			_, err = buf.ReadFrom(file)
+			if err != nil {
+				log.Fatal("Can not read replay: ", err)
+			}
+			reader = io.Reader(buf)
+		} else {
+			reader = file
+		}
+
 		var replay *bsor.Bsor
-		if replay, err = bsor.Read(file); err != nil {
+		if replay, err = bsor.Read(reader); err != nil {
 			log.Fatal("Replay decode: ", err)
 		}
 
