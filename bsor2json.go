@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -48,7 +49,7 @@ func (argv *rootT) Validate(ctx *cli.Context) error {
 
 var root = &cli.Command{
 	Name: "root",
-	Desc: "bsor2json v0.4.0",
+	Desc: "bsor2json v0.4.1",
 	Argv: func() interface{} { return new(rootT) },
 	Fn: func(ctx *cli.Context) error {
 		return nil
@@ -63,6 +64,21 @@ const (
 	ReplayEventsWithStats
 	ReplayStats
 )
+
+func (s OutputType) String() string {
+	switch s {
+	case RawReplay:
+		return "raw"
+	case ReplayEvents:
+		return "events"
+	case ReplayEventsWithStats:
+		return "events_and_stats"
+	case ReplayStats:
+		return "stats"
+	default:
+		return "unknown"
+	}
+}
 
 func loadAndDecodeReplay(fileName string, buffered bool) (*bsor.Replay, error) {
 	file, err := os.Open(fileName)
@@ -167,16 +183,39 @@ func convertReplay(fileName string, outputType OutputType, output string, buffer
 }
 
 func convert(argv *ReplayT, outputType OutputType) error {
-	if len(argv.File) == 0 {
-		return fmt.Errorf("Directory option is not implemented yet! Please use the -f option")
-	}
-
-	var outputFilename = argv.Output
 	if len(argv.Dir) > 0 {
-		outputFilename = filepath.Join(argv.Output, fileNameWithoutExt(filepath.Base(argv.File))+".json")
-	}
+		files, err := ioutil.ReadDir(argv.Dir)
+		if err != nil {
+			return err
+		}
 
-	return convertReplay(argv.File, outputType, outputFilename, argv.Buffered, argv.Pretty, argv.Force)
+		for _, file := range files {
+			inputFilename := filepath.Join(argv.Dir, file.Name())
+
+			if file.IsDir() || strings.ToLower(filepath.Ext(inputFilename)) != ".bsor" {
+				continue
+			}
+
+			outputDirectory := argv.Output
+			if len(outputDirectory) == 0 {
+				outputDirectory = argv.Dir
+			}
+
+			outputFilename := filepath.Join(outputDirectory, fileNameWithoutExt(filepath.Base(file.Name()))+"."+string(outputType.String())+".json")
+
+			fmt.Printf("Converting %v...", inputFilename)
+
+			if err = convertReplay(inputFilename, outputType, outputFilename, argv.Buffered, argv.Pretty, argv.Force); err != nil {
+				fmt.Println(err)
+			} else {
+				fmt.Print("OK\n")
+			}
+		}
+
+		return nil
+	} else {
+		return convertReplay(argv.File, outputType, argv.Output, argv.Buffered, argv.Pretty, argv.Force)
+	}
 }
 
 type ReplayT struct {
