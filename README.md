@@ -9,7 +9,7 @@
 ```sh
 > bsor2json.exe -h
 
-bsor2json v0.4.0
+bsor2json v0.4.1
 
 Options:
 
@@ -50,7 +50,7 @@ For example:
 ### Simplify replay and export to JSON 
 
 ```sh
-> .\bsor2json.exe events -h
+> bsor2json.exe events -h
 Simplify replay (notes/walls/pauses events only) and export to JSON
 
 Options:
@@ -74,7 +74,7 @@ For example:
 ### Calculate stats and export to JSON
 
 ```sh
-> .\bsor2json.exe stats -h
+> bsor2json.exe stats -h
 Calculate stats and export to JSON
 
 Options:
@@ -112,4 +112,4 @@ go build -ldflags "-s -w"
 
 ### Dependencies
 
-[go-bsor (BS Open Relay parser)](https://github.com/motzel/go-bsor)
+[go-bsor (BS Open Replay parser)](https://github.com/motzel/go-bsor)
