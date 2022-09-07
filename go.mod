@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/mkideal/cli v0.2.7
-	github.com/motzel/go-bsor v0.3.1
+	github.com/motzel/go-bsor v0.4.0
 )
 
 require (

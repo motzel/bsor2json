@@ -48,7 +48,7 @@ func (argv *rootT) Validate(ctx *cli.Context) error {
 
 var root = &cli.Command{
 	Name: "root",
-	Desc: "BSOR utils v0.4.0",
+	Desc: "bsor2json v0.4.0",
 	Argv: func() interface{} { return new(rootT) },
 	Fn: func(ctx *cli.Context) error {
 		return nil
@@ -58,26 +58,27 @@ var root = &cli.Command{
 type OutputType byte
 
 const (
-	FullReplay OutputType = iota
-	SimpleReplay
-	Stats
+	RawReplay OutputType = iota
+	ReplayEvents
+	ReplayEventsWithStats
+	ReplayStats
 )
 
-func convertReplay(fileName string, outputType OutputType, output string, buffered bool, pretty bool, force bool) error {
+func loadAndDecodeReplay(fileName string, buffered bool) (*bsor.Replay, error) {
 	file, err := os.Open(fileName)
 	if err != nil {
-		return fmt.Errorf("can not open replay: %v", err)
+		return nil, fmt.Errorf("can not open replay: %v", err)
 	}
 
 	defer file.Close()
 
 	fileInfo, err := file.Stat()
 	if err != nil {
-		return fmt.Errorf("can not get replay size: %v", err)
+		return nil, fmt.Errorf("can not get replay size: %v", err)
 	}
 
 	if fileInfo.IsDir() {
-		return fmt.Errorf("%v is a directory", fileName)
+		return nil, fmt.Errorf("%v is a directory", fileName)
 	}
 
 	var reader io.Reader
@@ -85,19 +86,26 @@ func convertReplay(fileName string, outputType OutputType, output string, buffer
 		buf := bytes.NewBuffer(make([]byte, 0, fileInfo.Size()))
 		_, err = buf.ReadFrom(file)
 		if err != nil {
-			return fmt.Errorf("can not read replay: %v", err)
+			return nil, fmt.Errorf("can not read replay: %v", err)
 		}
 		reader = io.Reader(buf)
 	} else {
 		reader = file
 	}
 
-	var replay *bsor.Bsor
+	var replay *bsor.Replay
 	if replay, err = bsor.Read(reader); err != nil {
-		return fmt.Errorf("replay decode error: %v", err)
+		return nil, fmt.Errorf("replay decode error: %v", err)
 	}
 
-	simplifiedReplay := bsor.NewBsorSimple(replay)
+	return replay, nil
+}
+
+func convertReplay(fileName string, outputType OutputType, output string, buffered bool, pretty bool, force bool) error {
+	replay, err := loadAndDecodeReplay(fileName, buffered)
+	if err != nil {
+		return err
+	}
 
 	var writer *bufio.Writer
 
@@ -130,13 +138,23 @@ func convertReplay(fileName string, outputType OutputType, output string, buffer
 
 	var out []byte
 	switch outputType {
-	case FullReplay:
+	case RawReplay:
 		out, err = toJson(replay, pretty)
-	case SimpleReplay:
-		out, err = toJson(simplifiedReplay, pretty)
-	case Stats:
-		err = fmt.Errorf("stats output not implemented yet")
+	case ReplayEvents:
+		replayEvents := bsor.NewReplayEvents(replay)
+		out, err = toJson(replayEvents, pretty)
+	case ReplayEventsWithStats:
+		replayEvents := bsor.NewReplayEvents(replay)
+		replayEventsWithStats := bsor.NewReplayEventsWithStats(replayEvents)
+		out, err = toJson(replayEventsWithStats, pretty)
+	case ReplayStats:
+		replayEvents := bsor.NewReplayEvents(replay)
+		replayStats := bsor.NewReplayStats(replayEvents)
+		out, err = toJson(replayStats, pretty)
+	default:
+		err = fmt.Errorf("unknown output type")
 	}
+
 	if err != nil {
 		return fmt.Errorf("JSON marshaling error: %v", err)
 	}
@@ -179,35 +197,56 @@ func (argv *ReplayT) Validate(ctx *cli.Context) error {
 }
 
 var replay = &cli.Command{
-	Name: "full",
-	Desc: "Convert replay to JSON",
+	Name: "raw",
+	Desc: "Convert raw replay data to JSON",
 	Argv: func() interface{} { return new(ReplayT) },
 	Fn: func(ctx *cli.Context) error {
 		argv := ctx.Argv().(*ReplayT)
 
-		return convert(argv, FullReplay)
+		return convert(argv, RawReplay)
 	},
 }
 
-type SimpleT struct {
+type ReplayEventsT struct {
 	ReplayT
+	WithStats bool `cli:"s,with-stats" usage:"whether to add stats" dft:"true"`
 }
 
-func (argv *SimpleT) Validate(ctx *cli.Context) error {
+func (argv *ReplayEventsT) Validate(ctx *cli.Context) error {
 	if len(argv.File) == 0 && len(argv.Dir) == 0 {
 		return fmt.Errorf("%s\nfile or directory is required; add -h flag for help", ctx.Command().Desc)
 	}
 	return nil
 }
 
-var simple = &cli.Command{
-	Name: "simple",
-	Desc: "Simplify replay (acc data only) and convert to JSON",
-	Argv: func() interface{} { return new(SimpleT) },
+var events = &cli.Command{
+	Name: "events",
+	Desc: "Simplify replay (notes/walls/pauses events only) and export to JSON",
+	Argv: func() interface{} { return new(ReplayEventsT) },
 	Fn: func(ctx *cli.Context) error {
-		argv := ctx.Argv().(*SimpleT)
+		argv := ctx.Argv().(*ReplayEventsT)
 
-		return convert((*ReplayT)(unsafe.Pointer(argv)), SimpleReplay)
+		outputType := ReplayEvents
+		if argv.WithStats {
+			outputType = ReplayEventsWithStats
+		}
+
+		return convert((*ReplayT)(unsafe.Pointer(argv)), outputType)
+	},
+}
+
+type ReplayStatsT struct {
+	ReplayT
+}
+
+var stats = &cli.Command{
+	Name: "stats",
+	Desc: "Calculate stats and export to JSON",
+	Argv: func() interface{} { return new(ReplayStatsT) },
+	Fn: func(ctx *cli.Context) error {
+		argv := ctx.Argv().(*ReplayStatsT)
+
+		return convert((*ReplayT)(unsafe.Pointer(argv)), ReplayStats)
 	},
 }
 
@@ -216,7 +255,7 @@ func main() {
 
 	start := time.Now()
 
-	if err := cli.Root(root, cli.Tree(help), cli.Tree(replay), cli.Tree(simple)).Run(os.Args[1:]); err != nil {
+	if err := cli.Root(root, cli.Tree(help), cli.Tree(replay), cli.Tree(events), cli.Tree(stats)).Run(os.Args[1:]); err != nil {
 		log.Fatal(err)
 	}
 
