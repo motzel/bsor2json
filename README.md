@@ -9,7 +9,7 @@
 ```sh
 > bsor2json.exe -h
 
-bsor2json v0.4.1
+bsor2json v0.5.0
 
 Options:
 
@@ -39,6 +39,7 @@ Options:
       --force[=false]     force overwrite
   -p, --pretty[=false]    whether the output JSON should be pretty formatted; conversion time will be much longer and the file will be larger
   -b, --buffered[=true]   whether file read should be buffered; it's faster but increases memory usage
+      --parallel[=0]      parallel processing of multiple replays at once; equal to the number of cpu cores if zero or not specified
 ```
 
 For example:

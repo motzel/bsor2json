@@ -6,12 +6,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mitchellh/colorstring"
+	"github.com/schollz/progressbar/v3"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -49,7 +54,7 @@ func (argv *rootT) Validate(ctx *cli.Context) error {
 
 var root = &cli.Command{
 	Name: "root",
-	Desc: "bsor2json v0.4.1",
+	Desc: "bsor2json v0.5.0",
 	Argv: func() interface{} { return new(rootT) },
 	Fn: func(ctx *cli.Context) error {
 		return nil
@@ -182,11 +187,33 @@ func convertReplay(fileName string, outputType OutputType, output string, buffer
 	return nil
 }
 
+type Job struct {
+	Dir      string
+	Filename string
+	Error    *error
+}
+
 func convert(argv *ReplayT, outputType OutputType) error {
 	if len(argv.Dir) > 0 {
 		files, err := ioutil.ReadDir(argv.Dir)
 		if err != nil {
 			return err
+		}
+
+		parallel := argv.Parallel
+		if parallel <= 0 || parallel > runtime.NumCPU() {
+			parallel = runtime.NumCPU()
+		}
+
+		jobs := make(chan Job, parallel)
+		results := make(chan Job, parallel)
+		done := make(chan bool)
+
+		bsorFiles := make([]Job, 0, len(files))
+
+		outputDirectory := argv.Output
+		if len(outputDirectory) == 0 {
+			outputDirectory = argv.Dir
 		}
 
 		for _, file := range files {
@@ -195,22 +222,66 @@ func convert(argv *ReplayT, outputType OutputType) error {
 			if file.IsDir() || strings.ToLower(filepath.Ext(inputFilename)) != ".bsor" {
 				continue
 			}
-
-			outputDirectory := argv.Output
-			if len(outputDirectory) == 0 {
-				outputDirectory = argv.Dir
-			}
-
-			outputFilename := filepath.Join(outputDirectory, fileNameWithoutExt(filepath.Base(file.Name()))+"."+string(outputType.String())+".json")
-
-			fmt.Printf("Converting %v...", inputFilename)
-
-			if err = convertReplay(inputFilename, outputType, outputFilename, argv.Buffered, argv.Pretty, argv.Force); err != nil {
-				fmt.Println(err)
-			} else {
-				fmt.Print("OK\n")
-			}
+			bsorFiles = append(bsorFiles, Job{Filename: file.Name(), Dir: argv.Dir})
 		}
+
+		barDescription := fmt.Sprintf("[green]Processing replays [yellow](parallel: %v)[reset]...", parallel)
+		bar := progressbar.NewOptions(len(bsorFiles),
+			progressbar.OptionEnableColorCodes(true),
+			progressbar.OptionSetDescription(barDescription),
+			progressbar.OptionShowCount(),
+			progressbar.OptionSetElapsedTime(true),
+			progressbar.OptionSetPredictTime(false),
+			progressbar.OptionShowIts(),
+			progressbar.OptionSetItsString("replays"),
+		)
+
+		// jobs producer
+		go func([]fs.FileInfo) {
+			for _, job := range bsorFiles {
+				jobs <- job
+			}
+			close(jobs)
+		}(files)
+
+		// results receiver
+		go func(done chan bool) {
+			for resultJob := range results {
+				if resultJob.Error != nil {
+					fmt.Printf("error when processing %v: %v\n", resultJob.Filename, *resultJob.Error)
+				}
+
+				bar.Add(1)
+			}
+			done <- true
+			bar.Finish()
+		}(done)
+
+		// create worker pool
+		var wg sync.WaitGroup
+		for i := 0; i < parallel; i++ {
+			wg.Add(1)
+
+			// worker
+			go func(wg *sync.WaitGroup) {
+				defer wg.Done()
+
+				for job := range jobs {
+					inputFilename := filepath.Join(job.Dir, job.Filename)
+					outputFilename := filepath.Join(outputDirectory, fileNameWithoutExt(filepath.Base(job.Filename))+"."+string(outputType.String())+".json")
+
+					if err = convertReplay(inputFilename, outputType, outputFilename, argv.Buffered, argv.Pretty, argv.Force); err != nil {
+						job.Error = &err
+					}
+
+					results <- job
+				}
+			}(&wg)
+		}
+		wg.Wait()
+		close(results)
+
+		<-done
 
 		return nil
 	} else {
@@ -226,6 +297,7 @@ type ReplayT struct {
 	Force    bool   `cli:"force" usage:"force overwrite" dft:"false"`
 	Pretty   bool   `cli:"p,pretty" usage:"whether the output JSON should be pretty formatted; conversion time will be much longer and the file will be larger" dft:"false"`
 	Buffered bool   `cli:"b,buffered" usage:"whether file read should be buffered; it's faster but increases memory usage" dft:"true"`
+	Parallel int    `cli:"parallel" usage:"parallel processing of multiple replays at once; equal to the number of cpu cores if zero or not specified " dft:"0"`
 }
 
 func (argv *ReplayT) Validate(ctx *cli.Context) error {
@@ -301,5 +373,5 @@ func main() {
 	elapsed := time.Since(start)
 
 	log.SetOutput(os.Stderr)
-	log.Printf("\nOperation took %s", elapsed)
+	log.Printf(colorstring.Color("\nOperation took [green]%s[reset]"), elapsed)
 }
