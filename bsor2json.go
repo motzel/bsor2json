@@ -53,7 +53,7 @@ func (argv *rootT) Validate(ctx *cli.Context) error {
 
 var root = &cli.Command{
 	Name: "root",
-	Desc: "bsor2json v0.5.0",
+	Desc: "bsor2json v0.6.0",
 	Argv: func() interface{} { return new(rootT) },
 	Fn: func(ctx *cli.Context) error {
 		return nil
@@ -246,7 +246,7 @@ func convert(argv *ReplayT, outputType OutputType) error {
 
 		// results receiver
 		go func(done chan bool) {
-			for _ = range results {
+			for range results {
 				bar.Add(1)
 			}
 			done <- true
@@ -264,7 +264,7 @@ func convert(argv *ReplayT, outputType OutputType) error {
 
 				for job := range jobs {
 					inputFilename := filepath.Join(job.Dir, job.Filename)
-					outputFilename := filepath.Join(outputDirectory, fileNameWithoutExt(filepath.Base(job.Filename))+"."+string(outputType.String())+".json")
+					outputFilename := filepath.Join(outputDirectory, fileNameWithoutExt(filepath.Base(job.Filename))+"."+outputType.String()+".json")
 
 					if err = convertReplay(inputFilename, outputType, outputFilename, argv.Buffered, argv.Pretty, argv.Force); err != nil {
 						jobErr := err
@@ -283,13 +283,13 @@ func convert(argv *ReplayT, outputType OutputType) error {
 		total := 0
 		ok := 0
 		failed := 0
-		errors := make([]error, 0, len(bsorFiles))
+		failedJobs := make([]error, 0, len(bsorFiles))
 		for _, job := range bsorFiles {
 			if job.Error != nil {
 				failed++
 
 				if argv.DisplayFailed {
-					errors = append(errors, *job.Error)
+					failedJobs = append(failedJobs, *job.Error)
 				}
 			} else {
 				ok++
@@ -300,8 +300,8 @@ func convert(argv *ReplayT, outputType OutputType) error {
 
 		log.Printf(colorstring.Color("\nReplays processed. [blue]Total:[reset] %v, [green]OK:[reset] %v, [red]Failed:[reset] %v"), total, ok, failed)
 
-		if argv.DisplayFailed && len(errors) > 0 {
-			for _, err := range errors {
+		if argv.DisplayFailed && len(failedJobs) > 0 {
+			for _, err := range failedJobs {
 				log.Printf(colorstring.Color("[red]%s[reset]"), err)
 			}
 		}

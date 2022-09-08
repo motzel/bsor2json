@@ -9,7 +9,7 @@
 ```
 > bsor2json.exe -h
 
-bsor2json v0.5.0
+bsor2json v0.6.0
 
 Options:
 
