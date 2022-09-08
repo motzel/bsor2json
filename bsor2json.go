@@ -9,7 +9,6 @@ import (
 	"github.com/mitchellh/colorstring"
 	"github.com/schollz/progressbar/v3"
 	"io"
-	"io/fs"
 	"io/ioutil"
 	"log"
 	"os"
@@ -205,8 +204,8 @@ func convert(argv *ReplayT, outputType OutputType) error {
 			parallel = runtime.NumCPU()
 		}
 
-		jobs := make(chan Job, parallel)
-		results := make(chan Job, parallel)
+		jobs := make(chan *Job, parallel)
+		results := make(chan *Job, parallel)
 		done := make(chan bool)
 
 		bsorFiles := make([]Job, 0, len(files))
@@ -222,6 +221,7 @@ func convert(argv *ReplayT, outputType OutputType) error {
 			if file.IsDir() || strings.ToLower(filepath.Ext(inputFilename)) != ".bsor" {
 				continue
 			}
+
 			bsorFiles = append(bsorFiles, Job{Filename: file.Name(), Dir: argv.Dir})
 		}
 
@@ -237,24 +237,20 @@ func convert(argv *ReplayT, outputType OutputType) error {
 		)
 
 		// jobs producer
-		go func([]fs.FileInfo) {
-			for _, job := range bsorFiles {
-				jobs <- job
+		go func() {
+			for i := range bsorFiles {
+				jobs <- &bsorFiles[i]
 			}
 			close(jobs)
-		}(files)
+		}()
 
 		// results receiver
 		go func(done chan bool) {
-			for resultJob := range results {
-				if resultJob.Error != nil {
-					fmt.Printf("error when processing %v: %v\n", resultJob.Filename, *resultJob.Error)
-				}
-
+			for _ = range results {
 				bar.Add(1)
 			}
 			done <- true
-			bar.Finish()
+			//bar.Finish()
 		}(done)
 
 		// create worker pool
@@ -271,7 +267,8 @@ func convert(argv *ReplayT, outputType OutputType) error {
 					outputFilename := filepath.Join(outputDirectory, fileNameWithoutExt(filepath.Base(job.Filename))+"."+string(outputType.String())+".json")
 
 					if err = convertReplay(inputFilename, outputType, outputFilename, argv.Buffered, argv.Pretty, argv.Force); err != nil {
-						job.Error = &err
+						jobErr := err
+						job.Error = &jobErr
 					}
 
 					results <- job
@@ -283,6 +280,32 @@ func convert(argv *ReplayT, outputType OutputType) error {
 
 		<-done
 
+		total := 0
+		ok := 0
+		failed := 0
+		errors := make([]error, 0, len(bsorFiles))
+		for _, job := range bsorFiles {
+			if job.Error != nil {
+				failed++
+
+				if argv.DisplayFailed {
+					errors = append(errors, *job.Error)
+				}
+			} else {
+				ok++
+			}
+
+			total++
+		}
+
+		log.Printf(colorstring.Color("\nReplays processed. [blue]Total:[reset] %v, [green]OK:[reset] %v, [red]Failed:[reset] %v"), total, ok, failed)
+
+		if argv.DisplayFailed && len(errors) > 0 {
+			for _, err := range errors {
+				log.Printf(colorstring.Color("[red]%s[reset]"), err)
+			}
+		}
+
 		return nil
 	} else {
 		return convertReplay(argv.File, outputType, argv.Output, argv.Buffered, argv.Pretty, argv.Force)
@@ -291,13 +314,14 @@ func convert(argv *ReplayT, outputType OutputType) error {
 
 type ReplayT struct {
 	cli.Helper
-	Dir      string `cli:"d,dir" usage:"directory containing bsor files to convert" dft:""`
-	File     string `cli:"f,file" usage:"bsor file to convert"`
-	Output   string `cli:"o,output" usage:"output filename (with -f option) or directory (with -d option); defaults to stdout or bsor directory" dft:""`
-	Force    bool   `cli:"force" usage:"force overwrite" dft:"false"`
-	Pretty   bool   `cli:"p,pretty" usage:"whether the output JSON should be pretty formatted; conversion time will be much longer and the file will be larger" dft:"false"`
-	Buffered bool   `cli:"b,buffered" usage:"whether file read should be buffered; it's faster but increases memory usage" dft:"true"`
-	Parallel int    `cli:"parallel" usage:"parallel processing of multiple replays at once; equal to the number of cpu cores if zero or not specified " dft:"0"`
+	Dir           string `cli:"d,dir" usage:"directory containing bsor files to convert" dft:""`
+	File          string `cli:"f,file" usage:"bsor file to convert"`
+	Output        string `cli:"o,output" usage:"output filename (with -f option) or directory (with -d option); defaults to stdout or bsor directory" dft:""`
+	Force         bool   `cli:"force" usage:"force overwrite" dft:"false"`
+	Pretty        bool   `cli:"p,pretty" usage:"whether the output JSON should be pretty formatted; conversion time will be much longer and the file will be larger" dft:"false"`
+	Buffered      bool   `cli:"b,buffered" usage:"whether file read should be buffered; it's faster but increases memory usage" dft:"true"`
+	Parallel      int    `cli:"parallel" usage:"parallel processing of multiple replays at once; equal to the number of cpu cores if zero or not specified " dft:"0"`
+	DisplayFailed bool   `cli:"display-failed" usage:"display failed replays when using the -d option" dft:"true"`
 }
 
 func (argv *ReplayT) Validate(ctx *cli.Context) error {

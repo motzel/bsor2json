@@ -6,7 +6,7 @@
 
 ## Usage
 
-```sh
+```
 > bsor2json.exe -h
 
 bsor2json v0.5.0
@@ -23,23 +23,24 @@ Commands:
   stats    Calculate stats and export to JSON
 ```
 
-### Convert full replay data to JSON
+### Convert raw replay data to JSON
 
-```sh
+```
 > bsor2json.exe raw -h
   
 Convert raw replay data to JSON
 
 Options:
 
-  -h, --help              display help information
-  -d, --dir               directory containing bsor files to convert
-  -f, --file              bsor file to convert
-  -o, --output            output filename (with -f option) or directory (with -d option); defaults to stdout or bsor directory
-      --force[=false]     force overwrite
-  -p, --pretty[=false]    whether the output JSON should be pretty formatted; conversion time will be much longer and the file will be larger
-  -b, --buffered[=true]   whether file read should be buffered; it's faster but increases memory usage
-      --parallel[=0]      parallel processing of multiple replays at once; equal to the number of cpu cores if zero or not specified
+  -h, --help                    display help information
+  -d, --dir                     directory containing bsor files to convert
+  -f, --file                    bsor file to convert
+  -o, --output                  output filename (with -f option) or directory (with -d option); defaults to stdout or bsor directory
+      --force[=false]           force overwrite
+  -p, --pretty[=false]          whether the output JSON should be pretty formatted; conversion time will be much longer and the file will be larger
+  -b, --buffered[=true]         whether file read should be buffered; it's faster but increases memory usage
+      --parallel[=0]            parallel processing of multiple replays at once; equal to the number of cpu cores if zero or not specified 
+      --display-failed[=true]   display failed replays when using the -d option
 ```
 
 For example:
@@ -50,43 +51,47 @@ For example:
 
 ### Simplify replay and export to JSON 
 
-```sh
+```
 > bsor2json.exe events -h
 Simplify replay (notes/walls/pauses events only) and export to JSON
 
 Options:
 
-  -h, --help                display help information
-  -d, --dir                 directory containing bsor files to convert
-  -f, --file                bsor file to convert
-  -o, --output              output filename (with -f option) or directory (with -d option); defaults to stdout or bsor directory
-      --force[=false]       force overwrite
-  -p, --pretty[=false]      whether the output JSON should be pretty formatted; conversion time will be much longer and the file will be larger
-  -b, --buffered[=true]     whether file read should be buffered; it's faster but increases memory usage
-  -s, --with-stats[=true]   whether to add stats
+  -h, --help                    display help information
+  -d, --dir                     directory containing bsor files to convert
+  -f, --file                    bsor file to convert
+  -o, --output                  output filename (with -f option) or directory (with -d option); defaults to stdout or bsor directory
+      --force[=false]           force overwrite
+  -p, --pretty[=false]          whether the output JSON should be pretty formatted; conversion time will be much longer and the file will be larger
+  -b, --buffered[=true]         whether file read should be buffered; it's faster but increases memory usage
+      --parallel[=0]            parallel processing of multiple replays at once; equal to the number of cpu cores if zero or not specified
+      --display-failed[=true]   display failed replays when using the -d option
+  -s, --with-stats[=true]       whether to add stats
 ```
 
 For example:
 
 ```sh
-> bsor2json.exe events -f filename.bsor -o filename.json --with-stats
+> bsor2json.exe events -d Replays --with-stats
 ```
 
 ### Calculate stats and export to JSON
 
-```sh
+```
 > bsor2json.exe stats -h
 Calculate stats and export to JSON
 
 Options:
 
-  -h, --help              display help information
-  -d, --dir               directory containing bsor files to convert
-  -f, --file              bsor file to convert
-  -o, --output            output filename (with -f option) or directory (with -d option); defaults to stdout or bsor directory
-      --force[=false]     force overwrite
-  -p, --pretty[=false]    whether the output JSON should be pretty formatted; conversion time will be much longer and the file will be larger
-  -b, --buffered[=true]   whether file read should be buffered; it's faster but increases memory usage
+  -h, --help                    display help information
+  -d, --dir                     directory containing bsor files to convert
+  -f, --file                    bsor file to convert
+  -o, --output                  output filename (with -f option) or directory (with -d option); defaults to stdout or bsor directory
+      --force[=false]           force overwrite
+  -p, --pretty[=false]          whether the output JSON should be pretty formatted; conversion time will be much longer and the file will be larger
+  -b, --buffered[=true]         whether file read should be buffered; it's faster but increases memory usage
+      --parallel[=0]            parallel processing of multiple replays at once; equal to the number of cpu cores if zero or not specified 
+      --display-failed[=true]   display failed replays when using the -d option
 ```
 
 For example:
@@ -102,6 +107,7 @@ For example:
 Install [cosmtrek/air](https://github.com/cosmtrek/air), customize the ``args_bin`` in ``.air.toml`` and then:
 
 ```sh
+go install
 air.exe
 ```
 
