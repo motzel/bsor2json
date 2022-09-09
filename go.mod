@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/mkideal/cli v0.2.7
-	github.com/motzel/go-bsor v0.7.1
+	github.com/motzel/go-bsor v0.7.2
 	github.com/schollz/progressbar/v3 v3.10.1
 )
 
