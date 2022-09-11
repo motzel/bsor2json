@@ -108,7 +108,7 @@ func loadAndDecodeReplay(fileName string, buffered bool) (*bsor.Replay, error) {
 		if err != nil {
 			return nil, fmt.Errorf("can not read replay: %v", err)
 		}
-		reader = io.Reader(buf)
+		reader = bytes.NewReader(buf.Bytes())
 	} else {
 		reader = file
 	}
