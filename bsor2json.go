@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/jwalton/go-supportscolor"
 	"github.com/mitchellh/colorstring"
 	"github.com/schollz/progressbar/v3"
 	"io"
@@ -53,7 +54,7 @@ func (argv *rootT) Validate(ctx *cli.Context) error {
 
 var root = &cli.Command{
 	Name: "root",
-	Desc: "bsor2json v0.8.3",
+	Desc: "bsor2json v0.8.4",
 	Argv: func() interface{} { return new(rootT) },
 	Fn: func(ctx *cli.Context) error {
 		return nil
@@ -192,7 +193,9 @@ type Job struct {
 	Error    *error
 }
 
-func convert(argv *ReplayT, outputType OutputType) error {
+func convert(argv *ReplayT, outputType OutputType, noColor bool) error {
+	shouldUseColors := !noColor && supportscolor.Stderr().SupportsColor
+
 	if len(argv.Dir) > 0 {
 		files, err := ioutil.ReadDir(argv.Dir)
 		if err != nil {
@@ -225,9 +228,14 @@ func convert(argv *ReplayT, outputType OutputType) error {
 			bsorFiles = append(bsorFiles, Job{Filename: file.Name(), Dir: argv.Dir})
 		}
 
-		barDescription := fmt.Sprintf("[green]Processing replays [yellow](parallel: %v)[reset]...", parallel)
+		var barDescription string
+		if shouldUseColors {
+			barDescription = fmt.Sprintf("[green]Processing replays [yellow](parallel: %v)[reset]...", parallel)
+		} else {
+			barDescription = fmt.Sprintf("Processing replays (parallel: %v)...", parallel)
+		}
 		bar := progressbar.NewOptions(len(bsorFiles),
-			progressbar.OptionEnableColorCodes(true),
+			progressbar.OptionEnableColorCodes(shouldUseColors),
 			progressbar.OptionSetDescription(barDescription),
 			progressbar.OptionShowCount(),
 			progressbar.OptionSetElapsedTime(true),
@@ -298,11 +306,19 @@ func convert(argv *ReplayT, outputType OutputType) error {
 			total++
 		}
 
-		log.Printf(colorstring.Color("\nReplays processed. [blue]Total:[reset] %v, [green]OK:[reset] %v, [red]Failed:[reset] %v"), total, ok, failed)
+		if shouldUseColors {
+			log.Printf(colorstring.Color("\nReplays processed. [blue]Total:[reset] %v, [green]OK:[reset] %v, [red]Failed:[reset] %v"), total, ok, failed)
+		} else {
+			log.Printf("\nReplays processed. Total: %v, OK: %v, Failed: %v", total, ok, failed)
+		}
 
 		if argv.DisplayFailed && len(failedJobs) > 0 {
 			for _, err := range failedJobs {
-				log.Printf(colorstring.Color("[red]%s[reset]"), err)
+				if shouldUseColors {
+					log.Printf(colorstring.Color("[red]%s[reset]"), err)
+				} else {
+					log.Printf("%s", err)
+				}
 			}
 		}
 
@@ -322,6 +338,7 @@ type ReplayT struct {
 	Buffered      bool   `cli:"b,buffered" usage:"whether file read should be buffered; it's faster but increases memory usage" dft:"true"`
 	Parallel      int    `cli:"parallel" usage:"parallel processing of multiple replays at once; equal to the number of cpu cores if zero or not specified " dft:"0"`
 	DisplayFailed bool   `cli:"display-failed" usage:"display failed replays when using the -d option" dft:"true"`
+	NoColor       bool   `cli:"no-color" usage:"disable output coloring; colors are enabled by default on terminals that support them" dft:"false"`
 }
 
 func (argv *ReplayT) Validate(ctx *cli.Context) error {
@@ -338,7 +355,7 @@ var replay = &cli.Command{
 	Fn: func(ctx *cli.Context) error {
 		argv := ctx.Argv().(*ReplayT)
 
-		return convert(argv, RawReplay)
+		return convert(argv, RawReplay, argv.NoColor)
 	},
 }
 
@@ -366,7 +383,7 @@ var events = &cli.Command{
 			outputType = ReplayEventsWithStats
 		}
 
-		return convert((*ReplayT)(unsafe.Pointer(argv)), outputType)
+		return convert((*ReplayT)(unsafe.Pointer(argv)), outputType, argv.NoColor)
 	},
 }
 
@@ -381,7 +398,7 @@ var stats = &cli.Command{
 	Fn: func(ctx *cli.Context) error {
 		argv := ctx.Argv().(*ReplayStatsT)
 
-		return convert((*ReplayT)(unsafe.Pointer(argv)), ReplayStats)
+		return convert((*ReplayT)(unsafe.Pointer(argv)), ReplayStats, argv.NoColor)
 	},
 }
 
@@ -397,5 +414,6 @@ func main() {
 	elapsed := time.Since(start)
 
 	log.SetOutput(os.Stderr)
-	log.Printf(colorstring.Color("\nOperation took [green]%s[reset]"), elapsed)
+
+	log.Printf("\nOperation took %s", elapsed)
 }
