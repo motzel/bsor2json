@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jwalton/go-supportscolor"
+	"github.com/mattn/go-colorable"
 	"github.com/mitchellh/colorstring"
 	"github.com/schollz/progressbar/v3"
 	"io"
@@ -54,7 +55,7 @@ func (argv *rootT) Validate(ctx *cli.Context) error {
 
 var root = &cli.Command{
 	Name: "root",
-	Desc: "bsor2json v0.8.4",
+	Desc: "bsor2json v0.8.5",
 	Argv: func() interface{} { return new(rootT) },
 	Fn: func(ctx *cli.Context) error {
 		return nil
@@ -407,7 +408,15 @@ func main() {
 
 	start := time.Now()
 
-	if err := cli.Root(root, cli.Tree(help), cli.Tree(replay), cli.Tree(events), cli.Tree(stats)).Run(os.Args[1:]); err != nil {
+	shouldUseColors := supportscolor.Stderr().SupportsColor
+	var writer io.Writer
+	if shouldUseColors {
+		writer = colorable.NewColorableStderr()
+	} else {
+		writer = colorable.NewNonColorable(os.Stderr)
+	}
+
+	if err := cli.Root(root, cli.Tree(help), cli.Tree(replay), cli.Tree(events), cli.Tree(stats)).RunWith(os.Args[1:], writer, nil); err != nil {
 		log.Fatal(err)
 	}
 
