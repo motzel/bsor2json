@@ -55,7 +55,7 @@ func (argv *rootT) Validate(ctx *cli.Context) error {
 
 var root = &cli.Command{
 	Name: "root",
-	Desc: "bsor2json v0.8.5",
+	Desc: "bsor2json v0.9.0",
 	Argv: func() interface{} { return new(rootT) },
 	Fn: func(ctx *cli.Context) error {
 		return nil
