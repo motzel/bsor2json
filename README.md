@@ -23,12 +23,11 @@ Commands:
   stats    Calculate stats and export to JSON
 ```
 
-### Convert raw replay data to JSON
+### Calculate stats and export to JSON
 
 ```
-> bsor2json.exe raw -h
-  
-Convert raw replay data to JSON
+> bsor2json.exe stats -h
+Calculate stats and export to JSON
 
 Options:
 
@@ -46,10 +45,10 @@ Options:
 For example:
 
 ```sh
-> bsor2json.exe raw -f filename.bsor -o filename.json --force
+> bsor2json.exe stats -f filename.bsor --pretty
 ```
 
-### Simplify replay and export to JSON 
+### Simplify replay and export to JSON
 
 ```
 > bsor2json.exe events -h
@@ -75,11 +74,12 @@ For example:
 > bsor2json.exe events -d Replays --with-stats
 ```
 
-### Calculate stats and export to JSON
+### Convert raw replay data to JSON
 
 ```
-> bsor2json.exe stats -h
-Calculate stats and export to JSON
+> bsor2json.exe raw -h
+  
+Convert raw replay data to JSON
 
 Options:
 
@@ -97,7 +97,7 @@ Options:
 For example:
 
 ```sh
-> bsor2json.exe stats -f filename.bsor --pretty
+> bsor2json.exe raw -f filename.bsor -o filename.json --force
 ```
 
 ## Build
