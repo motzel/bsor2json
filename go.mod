@@ -7,7 +7,7 @@ require (
 	github.com/mattn/go-colorable v0.1.7
 	github.com/mitchellh/colorstring v0.0.0-20190213212951-d06e56a500db
 	github.com/mkideal/cli v0.2.7
-	github.com/motzel/go-bsor v0.9.0
+	github.com/motzel/go-bsor v0.9.1
 	github.com/schollz/progressbar/v3 v3.10.1
 )
 

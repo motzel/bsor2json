@@ -9,7 +9,7 @@
 ```
 > bsor2json.exe -h
 
-bsor2json v0.9.0
+bsor2json v0.9.1
 
 Options:
 
@@ -107,7 +107,6 @@ For example:
 Install [cosmtrek/air](https://github.com/cosmtrek/air), customize the ``args_bin`` in ``.air.toml`` and then:
 
 ```sh
-go install
 air.exe
 ```
 
